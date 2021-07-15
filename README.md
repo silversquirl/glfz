@@ -11,3 +11,5 @@ better quality control and ensuring everything is properly tested.
 
 GLFZ supports Vulkan, through [vulkan-zig]. To enable this support, you must expose
 vulkan-zig's bindings to GLFZ as a package with the name `"vulkan"`.
+
+[vulkan-zig]: https://github.com/Snektron/vulkan-zig
