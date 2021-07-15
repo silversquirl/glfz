@@ -1,7 +1,9 @@
 const std = @import("std");
+const vk = @import("vulkan");
 
 // We define extern fns for most stuff, but cimport is useful for enums etc
 const c = @cImport({
+    @cDefine("GLFW_INCLUDE_VULKAN");
     @cInclude("GLFW/glfw3.h");
 });
 
@@ -163,6 +165,16 @@ pub const Window = opaque {
     pub const setFramebufferSizeCallback = glfwSetFramebufferSizeCallback;
     extern fn glfwSetFramebufferSizeCallback(self: *Window, callback: FramebufferSizeFn) FramebufferSizeFn;
     pub const FramebufferSizeFn = fn (*Window, c_int, c_int) callconv(.C) void;
+
+    //// Vulkan ////
+    pub fn createSurface(self: *Window, instance: vk.Instance, allocator: *vk.AllocationCallbacks) !vk.SurfaceKHR {
+        var surface: vk.SurfaceKHR = undefined;
+        return switch (glfwCreateWindowSurface(instance, self, allocator, &surface)) {
+            .success => surface,
+            .error_initialization_failed => requireError(error{ApiUnavailable}),
+        };
+    }
+    extern fn glfwCreateWindowSurface(*Window, vk.Instance, *vk.AllocationCallbacks, *vk.SurfaceKHR) vk.Result;
 };
 
 pub const Monitor = opaque {
@@ -246,3 +258,26 @@ fn getError(comptime ErrorType: type) ErrorType!void {
     unreachable;
 }
 extern fn glfwGetError(?*[*:0]const u8) c_int;
+
+//// Vulkan ////
+
+pub fn vulkanSupported() bool {
+    return glfwVulkanSupported() != c.GLFW_FALSE;
+}
+extern fn glfwVulkanSupported() c_int;
+
+pub fn getRequiredInstanceExtensions() ![][*:0]const char {
+    var count: u32 = undefined;
+    const result = glfwGetRequiredInstanceExtensions(&count) orelse {
+        return requireError(error{ApiUnavailable});
+    };
+    return result[0..count];
+}
+extern fn glfwGetRequiredInstanceExtensions(*u32) *[*:0]const char;
+
+pub fn getPhysicalDevicePresentationSupport(instance: vk.Instance, device: vk.PhysicalDevice, queue_family: u32) !bool {
+    const result = glfwGetPhysicalDevicePresentationSupport(instance, device, queue_family) != 0;
+    if (!result) try checkError(error{ ApiUnavailable, GlfwPlatformError });
+    return result;
+}
+extern fn glfwGetPhysicalDevicePresentationSupport(vk.Instance, vk.PhysicalDevice, u32) c_int;
