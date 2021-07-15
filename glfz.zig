@@ -275,6 +275,9 @@ pub fn getRequiredInstanceExtensions() ![][*:0]const char {
 }
 extern fn glfwGetRequiredInstanceExtensions(*u32) *[*:0]const char;
 
+pub const getInstanceProcAddress = glfwGetInstanceProcAddress;
+extern fn glfwGetInstanceProcAddress(instance: vk.Instance, proc_name: [*:0]const u8) vk.PfnVoidFunction;
+
 pub fn getPhysicalDevicePresentationSupport(instance: vk.Instance, device: vk.PhysicalDevice, queue_family: u32) !bool {
     const result = glfwGetPhysicalDevicePresentationSupport(instance, device, queue_family) != 0;
     if (!result) try checkError(error{ ApiUnavailable, GlfwPlatformError });
