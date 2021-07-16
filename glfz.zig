@@ -3,7 +3,7 @@ const vk = @import("vulkan");
 
 // We define extern fns for most stuff, but cimport is useful for enums etc
 const c = @cImport({
-    @cDefine("GLFW_INCLUDE_VULKAN");
+    @cDefine("GLFW_INCLUDE_VULKAN", {});
     @cInclude("GLFW/glfw3.h");
 });
 
