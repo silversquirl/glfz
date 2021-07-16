@@ -283,7 +283,7 @@ extern fn glfwGetInstanceProcAddress(instance: vk.Instance, proc_name: [*:0]cons
 
 pub fn getPhysicalDevicePresentationSupport(instance: vk.Instance, device: vk.PhysicalDevice, queue_family: u32) !bool {
     const result = glfwGetPhysicalDevicePresentationSupport(instance, device, queue_family) != 0;
-    if (!result) try checkError(error{ ApiUnavailable, GlfwPlatformError });
+    if (!result) try getError(error{ ApiUnavailable, GlfwPlatformError });
     return result;
 }
 extern fn glfwGetPhysicalDevicePresentationSupport(vk.Instance, vk.PhysicalDevice, u32) c_int;
