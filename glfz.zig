@@ -1,21 +1,19 @@
 const std = @import("std");
 const vk = @import("vulkan");
+const c = @import("c.zig");
+const err = @import("err.zig");
 
-// We define extern fns for most stuff, but cimport is useful for enums etc
-const c = @cImport({
-    @cDefine("GLFW_INCLUDE_VULKAN", {});
-    @cInclude("GLFW/glfw3.h");
-});
+pub usingnamespace @import("types.zig");
 
 //// Misc ////
 
 pub fn init() !void {
     // This is a backcompat thing and we're a new library, so disable it unconditionally
     glfwInitHint(c.GLFW_JOYSTICK_HAT_BUTTONS, c.GLFW_FALSE);
-    checkError();
+    err.check();
 
     if (glfwInit() == 0) {
-        return requireError(error{GlfwPlatformError});
+        return err.require(error{GlfwPlatformError});
     }
 }
 extern fn glfwInitHint(c_int, c_int) void;
@@ -26,180 +24,19 @@ extern fn glfwTerminate() void;
 
 pub fn swapInterval(interval: u31) void {
     glfwSwapInterval(interval);
-    checkError();
+    err.check();
 }
 extern fn glfwSwapInterval(c_int) void;
-
-//// Window ////
-
-pub const Window = opaque {
-    pub const InitError = error{
-        OutOfMemory,
-        ApiUnavailable,
-        VersionUnavailable,
-        FormatUnavailable,
-        GlfwPlatformError,
-    };
-
-    pub fn init(width: u16, height: u16, title: [:0]const u8, config: Config) InitError!*Window {
-        glfwDefaultWindowHints();
-
-        // Skip the first two 'cause they're monitor and share
-        @setEvalBranchQuota(2000);
-        inline for (std.meta.fields(Config)[2..]) |hint| {
-            // Check if the value is different from the default
-            const value = @field(config, hint.name);
-            if (!std.meta.eql(value, hint.default_value.?)) {
-                // Get the hint id
-                const hint_name = comptime blk: {
-                    var hint_name = ("GLFW_" ++ hint.name).*;
-                    break :blk std.ascii.upperString(&hint_name, &hint_name);
-                };
-                const hinti = @field(c, hint_name);
-
-                // Convert the value to an i32
-                const valuei: i32 = switch (@typeInfo(hint.field_type)) {
-                    .Bool => @boolToInt(value),
-                    .Enum => @enumToInt(value),
-                    .Optional => value orelse c.GLFW_DONT_CARE,
-                    .Int => value,
-                    else => unreachable,
-                };
-
-                // Set the hint
-                glfwWindowHint(hinti, valuei);
-            }
-        }
-
-        return glfwCreateWindow(width, height, title.ptr, config.monitor, config.share) orelse requireError(InitError);
-    }
-    extern fn glfwDefaultWindowHints() void;
-    extern fn glfwWindowHint(c_int, c_int) void;
-    extern fn glfwCreateWindow(c_int, c_int, [*:0]const u8, ?*Monitor, ?*Window) ?*Window;
-
-    pub const Config = struct {
-        monitor: ?*Monitor = null,
-        share: ?*Window = null,
-
-        resizable: bool = true,
-        visible: bool = true,
-        decorated: bool = true,
-        focused: bool = true,
-        auto_iconify: bool = true,
-        floating: bool = false,
-        maximized: bool = false,
-        center_cursor: bool = true,
-        transparent_framebuffer: bool = false,
-        focus_on_show: bool = true,
-        scale_to_monitor: bool = false,
-
-        red_bits: ?u31 = 8,
-        green_bits: ?u31 = 8,
-        blue_bits: ?u31 = 8,
-        alpha_bits: ?u31 = 8,
-        depth_bits: ?u31 = 24,
-        stencil_bits: ?u31 = 8,
-
-        client_api: ClientApi = .opengl,
-        context_creation_api: ContextCreationApi = .native,
-        context_version_major: u8 = 1,
-        context_version_minor: u8 = 0,
-
-        opengl_forward_compat: bool = false,
-        opengl_debug_context: bool = false,
-        opengl_profile: OpenglProfile = .any,
-    };
-
-    pub const deinit = glfwDestroyWindow;
-    extern fn glfwDestroyWindow(*Window) void;
-
-    pub fn windowSize(self: *Window) [2]u31 {
-        var x: c_int = undefined;
-        var y: c_int = undefined;
-        glfwGetWindowSize(self, &x, &y);
-        checkError();
-        return .{ @intCast(u31, x), @intCast(u31, y) };
-    }
-    extern fn glfwGetWindowSize(*Window, ?*c_int, ?*c_int) void;
-
-    pub fn framebufferSize(self: *Window) [2]u31 {
-        var x: c_int = undefined;
-        var y: c_int = undefined;
-        glfwGetFramebufferSize(self, &x, &y);
-        checkError();
-        return .{ @intCast(u31, x), @intCast(u31, y) };
-    }
-    extern fn glfwGetFramebufferSize(*Window, ?*c_int, ?*c_int) void;
-
-    pub fn makeContextCurrent(self: *Window) void {
-        glfwMakeContextCurrent(self);
-        checkError();
-    }
-    extern fn glfwMakeContextCurrent(*Window) void;
-
-    pub fn shouldClose(self: *Window) bool {
-        const res = glfwWindowShouldClose(self);
-        checkError();
-        return res != 0;
-    }
-    extern fn glfwWindowShouldClose(*Window) c_int;
-
-    pub fn swapBuffers(self: *Window) void {
-        glfwSwapBuffers(self);
-        checkError();
-    }
-    extern fn glfwSwapBuffers(*Window) void;
-
-    pub fn setUserPointer(self: *Window, ptr: anytype) void {
-        glfwSetWindowUserPointer(self, @ptrCast(*c_void, ptr));
-    }
-    pub fn getUserPointer(self: *Window, comptime T: type) T {
-        const ptr = glfwGetWindowUserPointer(self);
-        return @ptrCast(T, @alignCast(std.meta.alignment(T), ptr));
-    }
-    extern fn glfwSetWindowUserPointer(*Window, *c_void) void;
-    extern fn glfwGetWindowUserPointer(*Window) *c_void;
-
-    //// Callbacks ////
-    pub const setWindowSizeCallback = glfwSetWindowSizeCallback;
-    extern fn glfwSetWindowSizeCallback(self: *Window, callback: WindowSizeFn) WindowSizeFn;
-    pub const WindowSizeFn = fn (*Window, c_int, c_int) callconv(.C) void;
-
-    pub const setFramebufferSizeCallback = glfwSetFramebufferSizeCallback;
-    extern fn glfwSetFramebufferSizeCallback(self: *Window, callback: FramebufferSizeFn) FramebufferSizeFn;
-    pub const FramebufferSizeFn = fn (*Window, c_int, c_int) callconv(.C) void;
-
-    //// Vulkan ////
-    /// Vulkan must be supported.
-    /// The instance must have the required extensions enabled.
-    /// The window must have been created with client_api = .none.
-    pub fn createSurface(self: *Window, instance: vk.Instance, allocator: *vk.AllocationCallbacks) vk.SurfaceKHR {
-        var surface: vk.SurfaceKHR = undefined;
-        switch (glfwCreateWindowSurface(instance, self, allocator, &surface)) {
-            .success => {},
-            .error_initialization_failed => unreachable, // Vulkan is not supported
-            .error_extension_not_present => unreachable, // Instance did not have required extensions
-            .error_native_window_in_use_khr => unreachable, // Window created with client_api != .none
-            else => unreachable,
-        }
-        return surface;
-    }
-    extern fn glfwCreateWindowSurface(*Window, vk.Instance, *vk.AllocationCallbacks, *vk.SurfaceKHR) vk.Result;
-};
-
-pub const Monitor = opaque {
-    // TODO
-};
 
 //// Input ////
 
 pub fn pollEvents() void {
     glfwPollEvents();
-    checkError();
+    err.check();
 }
 pub fn waitEvents() void {
     glfwWaitEvents();
-    checkError();
+    err.check();
 }
 
 extern fn glfwPollEvents() void;
@@ -223,52 +60,6 @@ pub const OpenglProfile = enum(c_int) {
     core = c.GLFW_OPENGL_CORE_PROFILE,
 };
 
-//// Error handling ////
-
-const GlfwError = error{
-    OutOfMemory,
-    ApiUnavailable,
-    VersionUnavailable,
-    GlfwPlatformError,
-    FormatUnavailable,
-};
-fn checkError() void {
-    if (std.debug.runtime_safety) {
-        getError(GlfwError) catch unreachable;
-    }
-}
-fn requireError(comptime ErrorType: type) ErrorType {
-    try getError(ErrorType);
-    unreachable;
-}
-fn getError(comptime ErrorType: type) ErrorType!void {
-    const err: GlfwError = switch (glfwGetError(null)) {
-        c.GLFW_NO_ERROR => return,
-
-        c.GLFW_OUT_OF_MEMORY => error.OutOfMemory,
-        c.GLFW_API_UNAVAILABLE => error.ApiUnavailable,
-        c.GLFW_VERSION_UNAVAILABLE => error.VersionUnavailable,
-        c.GLFW_PLATFORM_ERROR => error.GlfwPlatformError,
-        c.GLFW_FORMAT_UNAVAILABLE => error.FormatUnavailable,
-
-        // Programmer errors
-        c.GLFW_NOT_INITIALIZED => unreachable,
-        c.GLFW_NO_CURRENT_CONTEXT => unreachable,
-        c.GLFW_INVALID_ENUM => unreachable,
-        c.GLFW_INVALID_VALUE => unreachable,
-        c.GLFW_NO_WINDOW_CONTEXT => unreachable,
-
-        else => unreachable, // Unknown error code;
-    };
-    inline for (@typeInfo(ErrorType).ErrorSet.?) |serr| {
-        if (@field(GlfwError, serr.name) == err) {
-            return @field(ErrorType, serr.name);
-        }
-    }
-    unreachable;
-}
-extern fn glfwGetError(?*[*:0]const u8) c_int;
-
 //// Vulkan ////
 
 pub fn vulkanSupported() bool {
@@ -291,7 +82,7 @@ extern fn glfwGetInstanceProcAddress(instance: vk.Instance, proc_name: [*:0]cons
 /// The instance must have the required extensions enabled.
 pub fn getPhysicalDevicePresentationSupport(instance: vk.Instance, device: vk.PhysicalDevice, queue_family: u32) !bool {
     const result = glfwGetPhysicalDevicePresentationSupport(instance, device, queue_family) != 0;
-    if (!result) try getError(error{GlfwPlatformError});
+    if (!result) try err.get(error{GlfwPlatformError});
     return result;
 }
 extern fn glfwGetPhysicalDevicePresentationSupport(vk.Instance, vk.PhysicalDevice, u32) c_int;
