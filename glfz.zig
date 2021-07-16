@@ -170,12 +170,19 @@ pub const Window = opaque {
     pub const FramebufferSizeFn = fn (*Window, c_int, c_int) callconv(.C) void;
 
     //// Vulkan ////
-    pub fn createSurface(self: *Window, instance: vk.Instance, allocator: *vk.AllocationCallbacks) !vk.SurfaceKHR {
+    /// Vulkan must be supported.
+    /// The instance must have the required extensions enabled.
+    /// The window must have been created with client_api = .none.
+    pub fn createSurface(self: *Window, instance: vk.Instance, allocator: *vk.AllocationCallbacks) vk.SurfaceKHR {
         var surface: vk.SurfaceKHR = undefined;
-        return switch (glfwCreateWindowSurface(instance, self, allocator, &surface)) {
-            .success => surface,
-            .error_initialization_failed => requireError(error{ApiUnavailable}),
-        };
+        switch (glfwCreateWindowSurface(instance, self, allocator, &surface)) {
+            .success => {},
+            .error_initialization_failed => unreachable, // Vulkan is not supported
+            .error_extension_not_present => unreachable, // Instance did not have required extensions
+            .error_native_window_in_use_khr => unreachable, // Window created with client_api != .none
+            else => unreachable,
+        }
+        return surface;
     }
     extern fn glfwCreateWindowSurface(*Window, vk.Instance, *vk.AllocationCallbacks, *vk.SurfaceKHR) vk.Result;
 };
@@ -269,11 +276,10 @@ pub fn vulkanSupported() bool {
 }
 extern fn glfwVulkanSupported() c_int;
 
-pub fn getRequiredInstanceExtensions() ![][*:0]const u8 {
+/// Vulkan must be supported.
+pub fn getRequiredInstanceExtensions() [][*:0]const u8 {
     var count: u32 = undefined;
-    const result = glfwGetRequiredInstanceExtensions(&count) orelse {
-        return requireError(error{ApiUnavailable});
-    };
+    const result = glfwGetRequiredInstanceExtensions(&count) orelse unreachable;
     return result[0..count];
 }
 extern fn glfwGetRequiredInstanceExtensions(*u32) ?[*][*:0]const u8;
@@ -281,9 +287,11 @@ extern fn glfwGetRequiredInstanceExtensions(*u32) ?[*][*:0]const u8;
 pub const getInstanceProcAddress = glfwGetInstanceProcAddress;
 extern fn glfwGetInstanceProcAddress(instance: vk.Instance, proc_name: [*:0]const u8) vk.PfnVoidFunction;
 
+/// Vulkan must be supported.
+/// The instance must have the required extensions enabled.
 pub fn getPhysicalDevicePresentationSupport(instance: vk.Instance, device: vk.PhysicalDevice, queue_family: u32) !bool {
     const result = glfwGetPhysicalDevicePresentationSupport(instance, device, queue_family) != 0;
-    if (!result) try getError(error{ ApiUnavailable, GlfwPlatformError });
+    if (!result) try getError(error{GlfwPlatformError});
     return result;
 }
 extern fn glfwGetPhysicalDevicePresentationSupport(vk.Instance, vk.PhysicalDevice, u32) c_int;
