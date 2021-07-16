@@ -269,14 +269,14 @@ pub fn vulkanSupported() bool {
 }
 extern fn glfwVulkanSupported() c_int;
 
-pub fn getRequiredInstanceExtensions() ![][*:0]const char {
+pub fn getRequiredInstanceExtensions() ![][*:0]const u8 {
     var count: u32 = undefined;
     const result = glfwGetRequiredInstanceExtensions(&count) orelse {
         return requireError(error{ApiUnavailable});
     };
     return result[0..count];
 }
-extern fn glfwGetRequiredInstanceExtensions(*u32) *[*:0]const char;
+extern fn glfwGetRequiredInstanceExtensions(*u32) ?[*][*:0]const u8;
 
 pub const getInstanceProcAddress = glfwGetInstanceProcAddress;
 extern fn glfwGetInstanceProcAddress(instance: vk.Instance, proc_name: [*:0]const u8) vk.PfnVoidFunction;
