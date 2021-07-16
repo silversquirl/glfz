@@ -21,7 +21,7 @@ pub fn init() !void {
 extern fn glfwInitHint(c_int, c_int) void;
 extern fn glfwInit() c_int;
 
-const deinit = glfwTerminate;
+pub const deinit = glfwTerminate;
 extern fn glfwTerminate() void;
 
 pub fn swapInterval(interval: u31) void {
