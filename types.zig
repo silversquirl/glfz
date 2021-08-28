@@ -132,6 +132,14 @@ pub const Window = opaque {
     extern fn glfwSetWindowUserPointer(*Window, *c_void) void;
     extern fn glfwGetWindowUserPointer(*Window) *c_void;
 
+    //// Input ////
+    pub fn getKey(self: *Window, key: glfw.Key) bool {
+        const state = glfwGetKey(self, key);
+        err.check();
+        return state == .press;
+    }
+    extern fn glfwGetKey(*Window, glfw.Key) glfw.KeyAction;
+
     //// Callbacks ////
     pub const setWindowSizeCallback = glfwSetWindowSizeCallback;
     extern fn glfwSetWindowSizeCallback(self: *Window, callback: WindowSizeFn) WindowSizeFn;
