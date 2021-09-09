@@ -116,6 +116,12 @@ pub const Window = opaque {
     }
     extern fn glfwWindowShouldClose(*Window) c_int;
 
+    pub fn setShouldClose(self: *Window, value: bool) void {
+        glfwSetWindowShouldClose(self, @boolToInt(value));
+        err.check();
+    }
+    extern fn glfwSetWindowShouldClose(*Window, c_int) void;
+
     pub fn swapBuffers(self: *Window) void {
         glfwSwapBuffers(self);
         err.check();
