@@ -171,6 +171,15 @@ pub const Window = opaque {
         return surface;
     }
     extern fn glfwCreateWindowSurface(vk.Instance, *Window, *const vk.AllocationCallbacks, *vk.SurfaceKHR) vk.Result;
+
+    //// Native access ////
+    pub const getX11Window = glfwGetX11Window;
+    extern fn glfwGetX11Window(*Window) u32;
+
+    pub fn getWaylandWindow(self: *Window, comptime WindowType: type) ?*WindowType {
+        return @ptrCast(?*WindowType, glfwGetWaylandWindow(self));
+    }
+    extern fn glfwGetWaylandWindow(*Window) ?*opaque {};
 };
 
 pub const Monitor = opaque {

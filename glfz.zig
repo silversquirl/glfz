@@ -215,3 +215,15 @@ pub fn getPhysicalDevicePresentationSupport(instance: vk.Instance, device: vk.Ph
     return result;
 }
 extern fn glfwGetPhysicalDevicePresentationSupport(vk.Instance, vk.PhysicalDevice, u32) c_int;
+
+//// Native access ////
+
+pub fn getX11Display(comptime DisplayType: type) ?*DisplayType {
+    return @ptrCast(?*DisplayType, glfwGetX11Display());
+}
+extern fn glfwGetX11Display() ?*opaque {};
+
+pub fn getWaylandDisplay(comptime DisplayType: type) ?*DisplayType {
+    return @ptrCast(?*DisplayType, glfwGetWaylandDisplay());
+}
+extern fn glfwGetWaylandDisplay() ?*opaque {};
