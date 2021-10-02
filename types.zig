@@ -71,6 +71,16 @@ pub const Window = opaque {
         alpha_bits: ?u31 = 8,
         depth_bits: ?u31 = 24,
         stencil_bits: ?u31 = 8,
+        accum_red_bits: ?u31 = 0,
+        accum_green_bits: ?u31 = 0,
+        accum_blue_bits: ?u31 = 0,
+
+        aux_buffers: ?u31 = 0,
+        samples: ?u31 = 0,
+        refresh_rate: ?u31 = null,
+        stereo: bool = false,
+        srgb_capable: bool = false,
+        doublebuffer: bool = true,
 
         client_api: glfw.ClientApi = .opengl,
         context_creation_api: glfw.ContextCreationApi = .native,
